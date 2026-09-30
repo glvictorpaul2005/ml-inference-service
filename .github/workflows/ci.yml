@@ -1,0 +1,52 @@
+name: CI/CD
+
+on:
+  push: {branches: [main]}
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: {POSTGRES_USER: mluser, POSTGRES_PASSWORD: mlpass, POSTGRES_DB: mlservice}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mluser" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: pip install -r requirements-dev.txt
+      - run: python train.py
+      - name: Unit tests
+        run: pytest -v
+      - name: Integration smoke test (real Postgres + Redis)
+        env:
+          DATABASE_URL: postgresql://mluser:mlpass@localhost:5432/mlservice
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          uvicorn app.main:app --port 8000 &
+          for i in $(seq 1 20); do curl -sf localhost:8000/health && break || sleep 1; done
+          curl -sf localhost:8000/health | grep '"cache":true' | grep '"database":true'
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ml-inference-service .
+
+  deploy:
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy (skipped if secret not set)
+        env: {HOOK: "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"}
+        run: |
+          if [ -n "$HOOK" ]; then curl -fsS -X POST "$HOOK"; else echo "RENDER_DEPLOY_HOOK_URL not set, skipping"; fi

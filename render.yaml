@@ -1,0 +1,22 @@
+# Render Blueprint: one-click free deploy (Docker web service + Postgres + Redis-compatible Key Value).
+# NOTE: free-tier terms change often (e.g. free Postgres expires) - check https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ml-inference-service
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: {name: ml-db, property: connectionString}
+      - key: REDIS_URL
+        fromService: {type: keyvalue, name: ml-cache, property: connectionString}
+      - key: WEB_CONCURRENCY
+        value: "1"
+  - type: keyvalue
+    name: ml-cache
+    plan: free
+    ipAllowList: []
+databases:
+  - name: ml-db
+    plan: free
