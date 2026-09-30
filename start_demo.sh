@@ -27,11 +27,11 @@ fi
 echo ""
 echo "======================================================="
 echo " ✓ Server starting on http://localhost:8000"
-echo " ✓ Opening interactive Swagger UI in your browser..."
+echo " ✓ Opening AegisML Diagnostic Web Application in your browser..."
 echo "======================================================="
 
 # 4. Automatically open browser in background after 1.5s
-(sleep 1.5 && open "http://localhost:8000/docs") &
+(sleep 1.5 && open "http://localhost:8000") &
 
 # 5. Start FastAPI server
 python -m uvicorn app.main:app --port 8000 --reload

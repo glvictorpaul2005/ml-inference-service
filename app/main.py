@@ -10,6 +10,8 @@ from pathlib import Path
 import joblib
 import numpy as np
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.cache import build_cache
@@ -132,3 +134,13 @@ def stats():
 @app.get("/predictions/recent")
 def recent(limit: int = 20):
     return state.db.recent(min(limit, 100))
+
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return FileResponse(STATIC_DIR / "index.html")
+
